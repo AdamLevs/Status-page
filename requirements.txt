@@ -8,6 +8,7 @@ django-mptt
 django-otp-yubikey
 django-otp
 django-redis
+django-environ
 django-rq
 django-tables2
 django
@@ -20,8 +21,9 @@ mkdocs
 mkdocstrings[python-legacy]
 netaddr
 phonenumbers
-psycopg2
+psycopg2-binary
 rq-scheduler
 segno
 swagger-spec-validator
 typing-extensions
+rq
