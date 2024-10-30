@@ -128,7 +128,7 @@ resource "aws_db_instance" "rds" {
 # Define EC2 instance with security group
 resource "aws_instance" "ec2_instance" {
   ami                    = "ami-0866a3c8686eaeeba"  # Ubuntu 24 in us-east-1
-  instance_type          = "t3.large"
+  instance_type          = "t3.medium"
   subnet_id              = module.vpc.public_subnets[0]
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   key_name               = "Adam-Macbook"
