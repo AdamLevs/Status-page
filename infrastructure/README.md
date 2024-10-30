@@ -46,8 +46,8 @@ To deploy this infrastructure, ensure you have the following installed:
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/yourusername/yourrepo.git
-cd yourrepo
+git clone https://github.com/AdamLevs/Status-page.git
+cd Status-page/infrastructure
 ```
 
 ### Initialize Terraform
