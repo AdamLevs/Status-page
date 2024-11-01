@@ -32,7 +32,7 @@ resource "aws_ecr_repository" "app_repo" {
   tags = { Uname = "Adam" }
 }
 
-# Define EKS cluster with security group to allow necessary ports
+# Define EKS cluster
 module "eks" {
   source              = "terraform-aws-modules/eks/aws"
   version             = "20.26.1"
@@ -40,6 +40,10 @@ module "eks" {
   cluster_version     = "1.31"
   vpc_id              = module.vpc.vpc_id
   subnet_ids          = module.vpc.private_subnets
+  cluster_endpoint_public_access = true
+  cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"] # for security purposes change it to your local
+  enable_cluster_creator_admin_permissions = true
+  authentication_mode = "API" # this soon will be the only auth method since aws configmap deprecated
   eks_managed_node_groups = {
     Adam-EKS = {
       instance_types = ["t3.medium"]
@@ -86,7 +90,7 @@ resource "aws_security_group" "ec2_sg" {
   }
 }
 
-# Define ElastiCache for Redis with necessary ports
+# Define ElastiCache for Redis
 resource "aws_elasticache_subnet_group" "redis_subnet_group" {
   name       = "Adam-redis-subnet-group"
   subnet_ids = module.vpc.private_subnets
@@ -104,7 +108,7 @@ resource "aws_elasticache_cluster" "redis" {
   tags                 = { Uname = "Adam" }
 }
 
-# Define RDS with necessary ports
+# Define RDS
 resource "aws_db_subnet_group" "rds_subnet_group" {
   name       = "adam-rds-subnet-group"
   subnet_ids = module.vpc.private_subnets
@@ -121,11 +125,11 @@ resource "aws_db_instance" "rds" {
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   db_name               = "status_page"
   username              = "status_page"
-  password              = "Qz147369"
-  tags = { Uname = "Adam" }
+  password              = "Qz147369"  # Sensitive, need to replace with security manager or something else
+  tags                  = { Uname = "Adam" }
 }
 
-# Define EC2 instance with security group
+# Define EC2 instance
 resource "aws_instance" "ec2_instance" {
   ami                    = "ami-0866a3c8686eaeeba"  # Ubuntu 24 in us-east-1
   instance_type          = "t3.medium"
@@ -135,7 +139,7 @@ resource "aws_instance" "ec2_instance" {
   tags = { Name = "adams-ec2-instance", Uname = "Adam" }
 }
 
-# Define ALB with HTTP listener and target group
+# Define ALB
 module "alb" {
   source  = "terraform-aws-modules/alb/aws"
   version = "8.0"
@@ -177,27 +181,68 @@ resource "aws_lb_target_group_attachment" "ec2_attachment" {
   port             = 80
 }
 
-# Outputs
+# Outputs for created resources
+output "vpc_id" {
+  value = module.vpc.vpc_id
+}
+
+output "public_subnets" {
+  value = module.vpc.public_subnets
+}
+
+output "private_subnets" {
+  value = module.vpc.private_subnets
+}
+
+output "ecr_repository_url" {
+  value = aws_ecr_repository.app_repo.repository_url
+}
+
 output "eks_cluster_name" {
   value = module.eks.cluster_name
 }
 
-output "ecr_repo_url" {
-  value = aws_ecr_repository.app_repo.repository_url
+output "eks_node_group" {
+  value = module.eks.eks_managed_node_groups["Adam-EKS"]
 }
 
 output "rds_endpoint" {
   value = aws_db_instance.rds.endpoint
 }
 
-output "elasticache_endpoint" {
-  value = aws_elasticache_cluster.redis.configuration_endpoint
+output "rds_username" {
+  value = aws_db_instance.rds.username
+}
+
+output "redis_endpoint" {
+  value = aws_elasticache_cluster.redis.cache_nodes[0].address
+}
+
+output "ec2_instance_public_ip" {
+  value = aws_instance.ec2_instance.public_ip
 }
 
 output "alb_dns_name" {
   value = module.alb.lb_dns_name
 }
 
-output "ec2_public_ip" {
-  value = aws_instance.ec2_instance.public_ip
+# Local exec to output file
+resource "null_resource" "output_to_file" {
+  provisioner "local-exec" {
+    command = <<EOT
+      echo "VPC ID: ${module.vpc.vpc_id}" > terraform-outputs.txt
+      echo "Public Subnets: ${join(", ", module.vpc.public_subnets)}" >> terraform-outputs.txt
+      echo "Private Subnets: ${join(", ", module.vpc.private_subnets)}" >> terraform-outputs.txt
+      echo "ECR Repository URL: ${aws_ecr_repository.app_repo.repository_url}" >> terraform-outputs.txt
+      echo "EKS Cluster Name: ${module.eks.cluster_name}" >> terraform-outputs.txt
+      echo "EKS Node Group: ${jsonencode(module.eks.eks_managed_node_groups["Adam-EKS"])}" >> terraform-outputs.txt
+      echo "RDS Endpoint: ${aws_db_instance.rds.endpoint}" >> terraform-outputs.txt
+      echo "RDS Username: ${aws_db_instance.rds.username}" >> terraform-outputs.txt
+      echo "Redis Endpoint: ${aws_elasticache_cluster.redis.cache_nodes[0].address}" >> terraform-outputs.txt
+      echo "EC2 Instance Public IP: ${aws_instance.ec2_instance.public_ip}" >> terraform-outputs.txt
+      echo "ALB DNS Name: ${module.alb.lb_dns_name}" >> terraform-outputs.txt
+    EOT
+  }
+
+  depends_on = [module.vpc, aws_ecr_repository.app_repo, aws_db_instance.rds, aws_elasticache_cluster.redis, module.alb, module.eks]
 }

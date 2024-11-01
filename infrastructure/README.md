@@ -1,5 +1,9 @@
 # Terraform AWS Infrastructure Setup
 
+```shell
+aws eks update-kubeconfig --name adams-eks-cluster --region us-east-1
+```
+
 This Terraform provides configuration to deploy a comprehensive infrastructure setup on AWS. The resources include a Virtual Private Cloud (VPC), Elastic Kubernetes Service (EKS) cluster, Elastic Container Registry (ECR), Elasticache for Redis, a PostgreSQL RDS database, an EC2 instance, and an Application Load Balancer (ALB).
 
 ## Table of Contents
