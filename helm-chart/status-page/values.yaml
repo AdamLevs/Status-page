@@ -1,49 +1,34 @@
 # Values for status-page Helm chart
 
-# Replica count for deployment in EKS
 replicaCount: 2
 
-# Docker image repository and tag
 image:
-  repository: 992382545251.dkr.ecr.us-east-1.amazonaws.com/adam-status-page-repo # replace to actual repo url
+  repository: 992382545251.dkr.ecr.us-east-1.amazonaws.com/adam-ecr-repo
   pullPolicy: Always
   tag: "latest"
 
-# Define image pull secrets if accessing a private registry
-imagePullSecrets:
-  - name: aws-ecr-credentials
+imagePullSecrets: []
+#  - name: aws-ecr-credentials
 
-# Overrides for chart naming
 nameOverride: "status-page"
 fullnameOverride: "status-page-deployment"
 
-# Service account details
 serviceAccount:
   create: true
-  annotations: {}
   name: "status-page-service-account"
-
-# Pod metadata
-podAnnotations: {}
-podLabels: {}
-
-# Security contexts
-podSecurityContext: {}
-securityContext: {}
-
-# Define service for status-page
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::992382545251:role/adams-status-page-role
 service:
   type: LoadBalancer
   port: 80
 
-# Ingress configuration
 ingress:
   enabled: true
   className: "nginx"
   annotations:
     kubernetes.io/ingress.class: nginx
   hosts:
-    - host: "status-page.adamlevs.com"  # Replace with actual domain / alb dns_name
+    - host: "status-page.adamlevs.com"
       paths:
         - path: /
           pathType: ImplementationSpecific
@@ -52,7 +37,6 @@ ingress:
       hosts:
         - "status-page.adamlevs.com"
 
-# Resource requests and limits for the application
 resources:
   requests:
     cpu: 200m
@@ -61,45 +45,36 @@ resources:
     cpu: 500m
     memory: 512Mi
 
-# Readiness and liveness probes
 livenessProbe:
   httpGet:
     path: /
-    port: 80
+    port: 8000
   initialDelaySeconds: 15
   periodSeconds: 20
 
 readinessProbe:
   httpGet:
     path: /
-    port: 80
+    port: 8000
   initialDelaySeconds: 5
   periodSeconds: 10
 
-# Autoscaling configuration for the status-page deployment
 autoscaling:
   enabled: true
   minReplicas: 1
   maxReplicas: 5
   targetCPUUtilizationPercentage: 70
 
-# Additional volumes and volume mounts
-volumes:
-  - name: config-volume
-    configMap:
-      name: status-page-config
-volumeMounts:
-  - name: config-volume
-    mountPath: /app/config
+# RDS and Redis Configuration
+database:
+  endpoint: "terraform-20241103150345546600000001.cx248m4we6k7.us-east-1.rds.amazonaws.com"
+  username: "statuspage"
+  password: "Qz147369"
+  dbName: "statuspage"
 
-# Node affinity and tolerations (if applicable for EKS nodes)
-nodeSelector: {}
-tolerations: []
-affinity: {}
+redis:
+  host: "adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com:6379"
+  port: "6379"
 
-# RDS Configuration
-rds:
-  endpoint: "adams-rds.cx248m4we6k7.us-east-1.rds.amazonaws.com:5432"  # Replace with actual RDS endpoint
-  username: "status_page"
-  password: "Qz147369"  # Use for this project only, need to change to other security option (option 1 is to use K8s secret)
-  dbName: "status_page"
+# Secret for Django's SECRET_KEY
+djangoSecretKey: "JTrYVpooBfFc(nxNvLs+cR6Qg2JV-0Xd-uf(G%+eOnmg@%kDy9"

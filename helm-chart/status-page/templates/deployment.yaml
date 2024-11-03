@@ -5,73 +5,50 @@ metadata:
   labels:
     {{- include "status-page.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
-  {{- end }}
   selector:
     matchLabels:
       {{- include "status-page.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       labels:
         {{- include "status-page.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       serviceAccountName: {{ include "status-page.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: RDS_ENDPOINT
-              value: {{ .Values.rds.endpoint }}
-            - name: RDS_DB_NAME
-              value: {{ .Values.rds.dbName }}
-            - name: RDS_USERNAME
-              value: {{ .Values.rds.username }}
-            - name: RDS_PASSWORD
-              value: {{ .Values.rds.password }}  # AGAIN!, the RDS pass need to be more secure, already gave the option in values.yaml
+            - name: DB_HOST
+              value: "{{ .Values.database.endpoint }}"  # RDS endpoint
+            - name: DB_PORT
+              value: "5432"  # Default PostgreSQL port
+            - name: DB_NAME
+              value: "status-page"  # Database name
+            - name: DB_USER
+              value: "status-page"  # Username
+            - name: DB_PASSWORD
+              value: "{{ .Values.database.password }}"  # Directly reference the password
+            - name: REDIS_HOST
+              value: "{{ .Values.redis.host }}"
+            - name: REDIS_PORT
+              value: "{{ .Values.redis.port }}"
+            - name: DJANGO_SECRET_KEY
+              value: "{{ .Values.djangoSecretKey }}"
           ports:
-            - name: http
-              containerPort: {{ .Values.service.port }}
-              protocol: TCP
-          livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
-          readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            - containerPort: 8000
+{{/*          livenessProbe:*/}}
+{{/*            httpGet:*/}}
+{{/*              path: {{ .Values.livenessProbe.httpGet.path }}*/}}
+{{/*              port: {{ .Values.livenessProbe.httpGet.port }}*/}}
+{{/*            initialDelaySeconds: 15*/}}
+{{/*            periodSeconds: 20*/}}
+{{/*          readinessProbe:*/}}
+{{/*            httpGet:*/}}
+{{/*              path: {{ .Values.readinessProbe.httpGet.path }}*/}}
+{{/*              port: {{ .Values.readinessProbe.httpGet.port }}*/}}
+{{/*            initialDelaySeconds: 5*/}}
+{{/*            periodSeconds: 10*/}}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
-          volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-      {{- with .Values.volumes }}
-      volumes:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
