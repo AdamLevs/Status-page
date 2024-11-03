@@ -35,15 +35,15 @@ resource "aws_security_group" "global_sg" {
   ingress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"            # Allow all inbound traffic within the VPC
-    cidr_blocks = ["10.0.0.0/16"] # Restrict to the VPC CIDR
+    protocol    = "-1"
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"          # Allow all outbound traffic
-    cidr_blocks = ["0.0.0.0/0"] # Modify if you want to restrict
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
@@ -145,7 +145,7 @@ resource "aws_eks_cluster" "my_cluster" {
   role_arn = aws_iam_role.eks_cluster_role.arn
   vpc_config {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [aws_security_group.global_sg.id] # Attach the global security group
+    security_group_ids = [aws_security_group.global_sg.id]
   }
 
   tags = {
