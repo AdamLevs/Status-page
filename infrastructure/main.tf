@@ -27,9 +27,9 @@ module "vpc" {
 }
 
 # Global Security Group for all services
-resource "aws_security_group" "global_sg" {
+resource "aws_security_group" "adam-global-sg" {
   name        = "adam-global-sg"
-  description = "Allow traffic for all services in the VPC"
+  description = "Allow traffic within VPC for all services"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
@@ -53,7 +53,7 @@ resource "aws_security_group" "global_sg" {
 }
 
 # Define RDS Instance
-resource "aws_db_subnet_group" "default" {
+resource "aws_db_subnet_group" "adam-db-subnet-group" {
   name       = "adam-db-subnet-group"
   subnet_ids = module.vpc.private_subnets
 
@@ -63,15 +63,17 @@ resource "aws_db_subnet_group" "default" {
   }
 }
 
-resource "aws_db_instance" "default" {
+resource "aws_db_instance" "adam-rds-instance" {
   allocated_storage      = 20
   engine                 = "postgres"
-  instance_class         = "db.t4g.micro"
+  instance_class         = "db.t4g.medium" # ARM-compatible instance
+  identifier             = "adam-status-page"
+  skip_final_snapshot    = true
   db_name                = "statuspage"
   username               = "statuspage"
   password               = "Qz147369"
-  db_subnet_group_name   = aws_db_subnet_group.default.name
-  vpc_security_group_ids = [aws_security_group.global_sg.id] # Attach the global security group
+  db_subnet_group_name   = aws_db_subnet_group.adam-db-subnet-group.name
+  vpc_security_group_ids = [aws_security_group.adam-global-sg.id]
 
   tags = {
     Name  = "adam-rds-instance"
@@ -80,7 +82,7 @@ resource "aws_db_instance" "default" {
 }
 
 # Define ElastiCache Cluster
-resource "aws_elasticache_subnet_group" "default" {
+resource "aws_elasticache_subnet_group" "adam-elasticache-subnet-group" {
   name       = "adam-elasticache-subnet-group"
   subnet_ids = module.vpc.private_subnets
 
@@ -90,13 +92,13 @@ resource "aws_elasticache_subnet_group" "default" {
   }
 }
 
-resource "aws_elasticache_cluster" "default" {
+resource "aws_elasticache_cluster" "adam-redis-cluster" {
   cluster_id         = "adam-redis-cluster"
   engine             = "redis"
-  node_type          = "cache.t3.micro"
+  node_type          = "cache.t4g.micro"
   num_cache_nodes    = 1
-  security_group_ids = [aws_security_group.global_sg.id] # Attach the global security group
-  subnet_group_name  = aws_elasticache_subnet_group.default.name
+  security_group_ids = [aws_security_group.adam-global-sg.id]
+  subnet_group_name  = aws_elasticache_subnet_group.adam-elasticache-subnet-group.name
 
   tags = {
     Name  = "adam-elasticache-cluster"
@@ -105,7 +107,7 @@ resource "aws_elasticache_cluster" "default" {
 }
 
 # Define ECR Repository
-resource "aws_ecr_repository" "my_repository" {
+resource "aws_ecr_repository" "adam-ecr-repo" {
   name                 = "adam-ecr-repo"
   image_tag_mutability = "MUTABLE"
 
@@ -116,7 +118,7 @@ resource "aws_ecr_repository" "my_repository" {
 }
 
 # IAM Role for EKS
-resource "aws_iam_role" "eks_cluster_role" {
+resource "aws_iam_role" "adam-eks-cluster-role" {
   name = "adam-eks-cluster-role"
 
   assume_role_policy = jsonencode({
@@ -139,13 +141,43 @@ resource "aws_iam_role" "eks_cluster_role" {
   }
 }
 
+# Broad permissions for EKS cluster role
+resource "aws_iam_policy" "adam_eks_permissions" {
+  name        = "adamEKSFullAccess"
+  description = "Full access for EKS cluster and its resources"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:*",
+          "ec2:*",
+          "ecr:*",
+          "elasticloadbalancing:*",
+          "cloudwatch:*",
+          "logs:*",
+          "autoscaling:*",
+          "iam:PassRole"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_adam_eks_permissions" {
+  policy_arn = aws_iam_policy.adam_eks_permissions.arn
+  role       = aws_iam_role.adam-eks-cluster-role.name
+}
+
 # Define EKS Cluster
-resource "aws_eks_cluster" "my_cluster" {
+resource "aws_eks_cluster" "adam-eks-cluster" {
   name     = "adam-eks-cluster"
-  role_arn = aws_iam_role.eks_cluster_role.arn
+  role_arn = aws_iam_role.adam-eks-cluster-role.arn
   vpc_config {
     subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [aws_security_group.global_sg.id]
+    security_group_ids = [aws_security_group.adam-global-sg.id]
   }
 
   tags = {
@@ -154,14 +186,8 @@ resource "aws_eks_cluster" "my_cluster" {
   }
 }
 
-# Attach IAM Policy to EKS Role
-resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.eks_cluster_role.name
-}
-
 # IAM Role for EKS Node Group
-resource "aws_iam_role" "eks_node_role" {
+resource "aws_iam_role" "adam-eks-node-role" {
   name = "adam-eks-node-role"
 
   assume_role_policy = jsonencode({
@@ -184,27 +210,55 @@ resource "aws_iam_role" "eks_node_role" {
   }
 }
 
-# Attach IAM Policies to Node Role
-resource "aws_iam_role_policy_attachment" "eks_worker_nodes_policy" {
+# Attach policies for the Node Role
+resource "aws_iam_role_policy_attachment" "adam-eks-worker-nodes-policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.eks_node_role.name
+  role       = aws_iam_role.adam-eks-node-role.name
 }
 
-resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
+resource "aws_iam_role_policy_attachment" "adam-eks-cni-policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-  role       = aws_iam_role.eks_node_role.name
+  role       = aws_iam_role.adam-eks-node-role.name
 }
 
-resource "aws_iam_role_policy_attachment" "ecr_access_policy" {
+resource "aws_iam_role_policy_attachment" "adam-ecr-access-policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-  role       = aws_iam_role.eks_node_role.name
+  role       = aws_iam_role.adam-eks-node-role.name
+}
+
+# Broad permissions for Node Role
+resource "aws_iam_policy" "adam_eks_node_permissions" {
+  name        = "adamEKSNodeFullAccess"
+  description = "Full access for EKS node group and its resources"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:*",
+          "ecr:*",
+          "cloudwatch:*",
+          "logs:*",
+          "iam:PassRole"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_adam_eks_node_permissions" {
+  policy_arn = aws_iam_policy.adam_eks_node_permissions.arn
+  role       = aws_iam_role.adam-eks-node-role.name
 }
 
 # Define Node Group
-resource "aws_eks_node_group" "my_node_group" {
-  cluster_name    = aws_eks_cluster.my_cluster.name
+resource "aws_eks_node_group" "adam-node-group" {
+  cluster_name    = aws_eks_cluster.adam-eks-cluster.name
   node_group_name = "adam-node-group"
-  node_role_arn   = aws_iam_role.eks_node_role.arn
+  node_role_arn   = aws_iam_role.adam-eks-node-role.arn
+  instance_types  = ["t4g.medium"]
   subnet_ids      = module.vpc.private_subnets
 
   scaling_config {
@@ -217,4 +271,21 @@ resource "aws_eks_node_group" "my_node_group" {
     Name  = "adam-node-group"
     Uname = "Adam"
   }
+}
+
+# Outputs
+output "ecr_repository_url" {
+  value = aws_ecr_repository.adam-ecr-repo.repository_url
+}
+
+output "rds_endpoint" {
+  value = aws_db_instance.adam-rds-instance.endpoint
+}
+
+output "redis_endpoint" {
+  value = aws_elasticache_cluster.adam-redis-cluster.configuration_endpoint
+}
+
+output "eks_cluster_name" {
+  value = aws_eks_cluster.adam-eks-cluster.name
 }

@@ -48,14 +48,14 @@ resources:
 livenessProbe:
   httpGet:
     path: /
-    port: 8000
+    port: 80
   initialDelaySeconds: 15
   periodSeconds: 20
 
 readinessProbe:
   httpGet:
     path: /
-    port: 8000
+    port: 80
   initialDelaySeconds: 5
   periodSeconds: 10
 
@@ -73,7 +73,7 @@ database:
   dbName: "statuspage"
 
 redis:
-  host: "adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com:6379"
+  host: "adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com"
   port: "6379"
 
 # Secret for Django's SECRET_KEY

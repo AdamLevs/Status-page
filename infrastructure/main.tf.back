@@ -17,311 +17,273 @@ provider "aws" {
 module "vpc" {
   source             = "terraform-aws-modules/vpc/aws"
   version            = "5.0.0"
-  name               = "adams-vpc"
+  name               = "adam-vpc"
   cidr               = "10.0.0.0/16"
   azs                = ["us-east-1a", "us-east-1b"]
   private_subnets    = ["10.0.1.0/24", "10.0.2.0/24"]
   public_subnets     = ["10.0.3.0/24", "10.0.4.0/24"]
   enable_nat_gateway = true
-  tags               = { Name = "Adams-vpc", Uname = "Adam" }
+  tags               = { Name = "adam-vpc", Uname = "Adam" }
 }
 
-# Define ECR repository
-resource "aws_ecr_repository" "app_repo" {
-  name = "adam-status-page-repo"
-  tags = { Uname = "Adam" }
-}
+# Global Security Group for all services
+resource "aws_security_group" "adam-global-sg" {
+  name        = "adam-global-sg"
+  description = "Allow traffic within VPC for all services"
+  vpc_id      = module.vpc.vpc_id
 
-# Define EKS cluster
-module "eks" {
-  source                                   = "terraform-aws-modules/eks/aws"
-  version                                  = "20.26.1"
-  cluster_name                             = "adams-eks-cluster"
-  cluster_version                          = "1.31"
-  vpc_id                                   = module.vpc.vpc_id
-  subnet_ids                               = module.vpc.private_subnets
-  cluster_endpoint_public_access           = true
-  cluster_endpoint_public_access_cidrs     = ["0.0.0.0/0"] # for security purposes change it to your local
-  enable_cluster_creator_admin_permissions = true
-  authentication_mode                      = "API" # this soon will be the only auth method since aws configmap deprecated
-
-  node_security_group_additional_rules = {
-    gaga_zuzu = {
-      description                   = "test"
-      protocol                      = "tcp"
-      from_port                     = 8000
-      to_port                       = 8000
-      type                          = "ingress"
-      source_cluster_security_group = true
-    }
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
-  eks_managed_node_groups = {
-    Adam-EKS = {
-      instance_types = ["t4g.medium"]
-      ami_type       = "AL2023_ARM_64_STANDARD"
-      min_size       = 1
-      max_size       = 3
-      desired_size   = 1
-    }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
-  tags = { Name = "adams-eks", Uname = "Adam" }
-}
 
-
-module "elasticache" {
-  source  = "terraform-aws-modules/elasticache/aws"
-  version = "1.3.0"
-
-  cluster_id               = "adams-redis-cluster"
-  create_cluster           = true
-  create_replication_group = false
-
-  engine_version    = "7.1"
-  node_type         = "cache.t4g.small"
-  apply_immediately = true
-
-  # Security Group
-  vpc_id = module.vpc.vpc_id
-  security_group_rules = {
-    ingress_vpc = {
-      # Default type is `ingress`
-      # Default port is based on the default engine port
-      description = "VPC traffic"
-      cidr_ipv4   = module.vpc.vpc_cidr_block
-    }
-  }
-  # Subnet Group
-  subnet_group_name        = adam-SG-sp
-  subnet_group_description = "adam status-page subnet group"
-  subnet_ids               = module.vpc.private_subnets
-
-  # Parameter Group
-  create_parameter_group      = true
-  parameter_group_name        = adam-PG
-  parameter_group_family      = "redis7"
-  parameter_group_description = "adam parameter group"
-  parameters = [
-    {
-      name  = "latency-tracking"
-      value = "yes"
-    }
-  ]
-
-  tags = { Name = "adams-SG", Uname = "Adam" }
-}
-
-module "db" {
-  source     = "terraform-aws-modules/rds/aws"
-  version    = "6.10.0"
-  identifier = Adam-Status-page-RDS
-
-  # All available versions: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.html#PostgreSQL.Concepts
-  engine                   = "postgres"
-  engine_version           = "14"
-  engine_lifecycle_support = "open-source-rds-extended-support-disabled"
-  family                   = "postgres14" # DB parameter group
-  major_engine_version     = "14"         # DB option group
-  instance_class           = "db.t4g.medium"
-  allocated_storage        = 20
-  max_allocated_storage    = 100
-
-  # NOTE: Do NOT use 'user' as the value for 'username' as it throws:
-  # "Error creating DB Instance: InvalidParameterValue: MasterUsername
-  # user cannot be used as it is a reserved word used by the engine"
-  db_name  = "completePostgresql"
-  username = "complete_postgresql"
-  port     = 5432
-
-  # Setting manage_master_user_password_rotation to false after it
-  # has previously been set to true disables automatic rotation
-  # however using an initial value of false (default) does not disable
-  # automatic rotation and rotation will be handled by RDS.
-  # manage_master_user_password_rotation allows users to configure
-  # a non-default schedule and is not meant to disable rotation
-  # when initially creating / enabling the password management feature
-  manage_master_user_password_rotation              = true
-  master_user_password_rotate_immediately           = false
-  master_user_password_rotation_schedule_expression = "rate(15 days)"
-  multi_az                                          = true
-  db_subnet_group_name                              = module.vpc.database_subnet_group
-  vpc_security_group_ids                            = [module.security_group.security_group_id]
-
-  maintenance_window              = "Mon:00:00-Mon:03:00"
-  backup_window                   = "03:00-06:00"
-  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
-  create_cloudwatch_log_group     = true
-
-  backup_retention_period = 1
-  skip_final_snapshot     = true
-  deletion_protection     = false
-
-  performance_insights_enabled          = true
-  performance_insights_retention_period = 7
-  create_monitoring_role                = true
-  monitoring_interval                   = 60
-  monitoring_role_name                  = "example-monitoring-role-name"
-  monitoring_role_use_name_prefix       = true
-  monitoring_role_description           = "Description for monitoring role"
-
-  parameters = [
-    {
-      name  = "autovacuum"
-      value = 1
-    },
-    {
-      name  = "client_encoding"
-      value = "utf8"
-    }
-  ]
-
-  tags = local.tags
-  db_option_group_tags = {
-    "Sensitive" = "low"
-  }
-  db_parameter_group_tags = {
-    "Sensitive" = "low"
-  }
-  cloudwatch_log_group_tags = {
-    "Sensitive" = "high"
+  tags = {
+    Name  = "adam-global-sg"
+    Uname = "Adam"
   }
 }
 
-
-
-
-
-
-
-
-# Define ElastiCache for Redis
-resource "aws_elasticache_subnet_group" "redis_subnet_group" {
-  name       = "Adam-redis-subnet-group"
+# Define RDS Instance
+resource "aws_db_subnet_group" "adam-db-subnet-group" {
+  name       = "adam-db-subnet-group"
   subnet_ids = module.vpc.private_subnets
-  tags       = { Uname = "Adam" }
+
+  tags = {
+    Name  = "adam-db-subnet-group"
+    Uname = "Adam"
+  }
 }
 
-resource "aws_elasticache_cluster" "redis" {
-  cluster_id           = "adams-redis-cluster"
-  engine               = "redis"
-  node_type            = "cache.t3.micro"
-  num_cache_nodes      = 1
-  subnet_group_name    = aws_elasticache_subnet_group.redis_subnet_group.name
-  security_group_ids   = [aws_security_group.ec2_sg.id]
-  parameter_group_name = "default.redis7"
-  tags                 = { Uname = "Adam" }
+resource "aws_db_instance" "adam-rds-instance" {
+  allocated_storage      = 20
+  engine                 = "postgres"
+  instance_class         = "db.t3.micro"
+  identifier             = "adam-status-page"
+  skip_final_snapshot    = true
+  db_name                = "statuspage"
+  username               = "statuspage"
+  password               = "Qz147369"
+  db_subnet_group_name   = aws_db_subnet_group.adam-db-subnet-group.name
+  vpc_security_group_ids = [aws_security_group.adam-global-sg.id]
+
+  tags = {
+    Name  = "adam-rds-instance"
+    Uname = "Adam"
+  }
 }
 
-# Define RDS
-resource "aws_db_subnet_group" "rds_subnet_group" {
-  name       = "adam-rds-subnet-group"
+# Define ElastiCache Cluster
+resource "aws_elasticache_subnet_group" "adam-elasticache-subnet-group" {
+  name       = "adam-elasticache-subnet-group"
   subnet_ids = module.vpc.private_subnets
-  tags       = { Uname = "Adam" }
-}
 
-
-module "iam_iam-assumable-role-with-oidc" {
-  source                 = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
-  version                = "5.47.1"
-  create_role            = true
-  allow_self_assume_role = true
-  role_name              = "adams-status-page-role"
-  tags = { Role = "adams-ec2-instance", Uname = "Adam"
+  tags = {
+    Name  = "adam-elasticache-subnet-group"
+    Uname = "Adam"
   }
-  provider_url                  = module.eks.cluster_oidc_issuer_url
-  oidc_fully_qualified_subjects = ["system:serviceaccount:status-page:status-page-service-account"]
-  role_policy_arns = [
-    aws_iam_policy.ecr_rds_access.arn
-  ]
 }
-data "aws_iam_policy_document" "ecr_rds_policy" {
-  statement {
-    actions = [
-      # ECR permissions
-      "ecr:BatchGetImage",
-      "ecr:GetAuthorizationToken",
-      "ecr:BatchCheckLayerAvailability",
-      "ecr:GetDownloadUrlForLayer",
-      "ecr:DescribeImages"
+
+resource "aws_elasticache_cluster" "adam-redis-cluster" {
+  cluster_id         = "adam-redis-cluster"
+  engine             = "redis"
+  node_type          = "cache.t3.micro"
+  num_cache_nodes    = 1
+  security_group_ids = [aws_security_group.adam-global-sg.id]
+  subnet_group_name  = aws_elasticache_subnet_group.adam-elasticache-subnet-group.name
+
+  tags = {
+    Name  = "adam-elasticache-cluster"
+    Uname = "Adam"
+  }
+}
+
+# Define ECR Repository
+resource "aws_ecr_repository" "adam-ecr-repo" {
+  name                 = "adam-ecr-repo"
+  image_tag_mutability = "MUTABLE"
+
+  tags = {
+    Name  = "adam-ecr-repo"
+    Uname = "Adam"
+  }
+}
+
+# IAM Role for EKS
+resource "aws_iam_role" "adam-eks-cluster-role" {
+  name = "adam-eks-cluster-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "eks.amazonaws.com"
+        }
+        Effect = "Allow"
+        Sid    = ""
+      },
     ]
-    resources = ["*"]
-  }
+  })
 
-  statement {
-    actions = [
-      # RDS permissions
-      "rds:DescribeDBInstances",
-      "rds:DescribeDBSnapshots",
-      "rds:DescribeDBParameterGroups",
-      "rds:DescribeDBSecurityGroups",
-      "rds:DescribeDBSubnetGroups",
-      "rds:DescribeEngineDefaultParameters",
-      "rds:ListTagsForResource",
-      "rds:DescribeEventSubscriptions",
-      "rds:DescribeOptionGroups"
+  tags = {
+    Name  = "adam-eks-cluster-role"
+    Uname = "Adam"
+  }
+}
+
+# Broad permissions for EKS cluster role
+resource "aws_iam_policy" "adam_eks_permissions" {
+  name        = "adamEKSFullAccess"
+  description = "Full access for EKS cluster and its resources"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:*",
+          "ec2:*",
+          "ecr:*",
+          "elasticloadbalancing:*",
+          "cloudwatch:*",
+          "logs:*",
+          "autoscaling:*",
+          "iam:PassRole"
+        ]
+        Resource = "*"
+      }
     ]
-    resources = ["*"]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_adam_eks_permissions" {
+  policy_arn = aws_iam_policy.adam_eks_permissions.arn
+  role       = aws_iam_role.adam-eks-cluster-role.name
+}
+
+# Define EKS Cluster
+resource "aws_eks_cluster" "adam-eks-cluster" {
+  name     = "adam-eks-cluster"
+  role_arn = aws_iam_role.adam-eks-cluster-role.arn
+  vpc_config {
+    subnet_ids         = module.vpc.private_subnets
+    security_group_ids = [aws_security_group.adam-global-sg.id]
+  }
+
+  tags = {
+    Name  = "adam-eks-cluster"
+    Uname = "Adam"
   }
 }
 
-resource "aws_iam_policy" "ecr_rds_access" {
-  name        = "ECR-RDS-Access-Policy"
-  description = "Policy that allows pulling from ECR and accessing RDS"
-  policy      = data.aws_iam_policy_document.ecr_rds_policy.json
+# IAM Role for EKS Node Group
+resource "aws_iam_role" "adam-eks-node-role" {
+  name = "adam-eks-node-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Effect = "Allow"
+        Sid    = ""
+      },
+    ]
+  })
+
+  tags = {
+    Name  = "adam-eks-node-role"
+    Uname = "Adam"
+  }
 }
 
-# Outputs for created resources
-output "vpc_id" {
-  value = module.vpc.vpc_id
+# Attach policies for the Node Role
+resource "aws_iam_role_policy_attachment" "adam-eks-worker-nodes-policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.adam-eks-node-role.name
 }
 
-output "public_subnets" {
-  value = module.vpc.public_subnets
+resource "aws_iam_role_policy_attachment" "adam-eks-cni-policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.adam-eks-node-role.name
 }
 
-output "private_subnets" {
-  value = module.vpc.private_subnets
+resource "aws_iam_role_policy_attachment" "adam-ecr-access-policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.adam-eks-node-role.name
 }
 
-output "ecr_repository_url" {
-  value = aws_ecr_repository.app_repo.repository_url
+# Broad permissions for Node Role
+resource "aws_iam_policy" "adam_eks_node_permissions" {
+  name        = "adamEKSNodeFullAccess"
+  description = "Full access for EKS node group and its resources"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:*",
+          "ecr:*",
+          "cloudwatch:*",
+          "logs:*",
+          "iam:PassRole"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
-output "eks_cluster_name" {
-  value = module.eks.cluster_name
+resource "aws_iam_role_policy_attachment" "attach_adam_eks_node_permissions" {
+  policy_arn = aws_iam_policy.adam_eks_node_permissions.arn
+  role       = aws_iam_role.adam-eks-node-role.name
 }
 
-output "eks_node_group" {
-  value = module.eks.eks_managed_node_groups["Adam-EKS"]
+# Define Node Group
+resource "aws_eks_node_group" "adam-node-group" {
+  cluster_name    = aws_eks_cluster.adam-eks-cluster.name
+  node_group_name = "adam-node-group"
+  node_role_arn   = aws_iam_role.adam-eks-node-role.arn
+  subnet_ids      = module.vpc.private_subnets
+  instance_types  = ["t4g.medium"]
+  ami_type        = "AL2023_ARM_64_STANDARD"
+
+  scaling_config {
+    desired_size = 2
+    max_size     = 3
+    min_size     = 1
+  }
+
+  tags = {
+    Name  = "adam-node-group"
+    Uname = "Adam"
+  }
 }
 
 output "rds_endpoint" {
-  value = aws_db_instance.rds.endpoint
-}
-
-output "rds_username" {
-  value = aws_db_instance.rds.username
+  value = aws_db_instance.adam-rds-instance.endpoint
 }
 
 output "redis_endpoint" {
-  value = aws_elasticache_cluster.redis.cache_nodes[0].address
+
+
+  value = aws_elasticache_cluster.adam-redis-cluster.configuration_endpoint
 }
 
-# Local exec to output file
-resource "null_resource" "output_to_file" {
-  provisioner "local-exec" {
-    command = <<EOT
-      echo "VPC ID: ${module.vpc.vpc_id}" > terraform-outputs.txt
-      echo "Public Subnets: ${join(", ", module.vpc.public_subnets)}" >> terraform-outputs.txt
-      echo "Private Subnets: ${join(", ", module.vpc.private_subnets)}" >> terraform-outputs.txt
-      echo "ECR Repository URL: ${aws_ecr_repository.app_repo.repository_url}" >> terraform-outputs.txt
-      echo "EKS Cluster Name: ${module.eks.cluster_name}" >> terraform-outputs.txt
-      echo "EKS Node Group: ${jsonencode(module.eks.eks_managed_node_groups["Adam-EKS"])}" >> terraform-outputs.txt
-      echo "RDS Endpoint: ${aws_db_instance.rds.endpoint}" >> terraform-outputs.txt
-      echo "RDS Username: ${aws_db_instance.rds.username}" >> terraform-outputs.txt
-      echo "Redis Endpoint: ${aws_elasticache_cluster.redis.cache_nodes[0].address}" >> terraform-outputs.txt
-    EOT
-  }
-
-  depends_on = [module.vpc, aws_ecr_repository.app_repo, aws_db_instance.rds, aws_elasticache_cluster.redis, module.eks]
+output "ecr_repository_url" {
+  value = aws_ecr_repository.adam-ecr-repo.repository_url
 }
