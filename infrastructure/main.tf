@@ -69,8 +69,8 @@ resource "aws_db_instance" "adam-rds-instance" {
   instance_class         = "db.t4g.medium" # ARM-compatible instance
   identifier             = "adam-status-page"
   skip_final_snapshot    = true
-  db_name                = "statuspage"
-  username               = "statuspage"
+  db_name                = "status-page"
+  username               = "status-page"
   password               = "Qz147369"
   db_subnet_group_name   = aws_db_subnet_group.adam-db-subnet-group.name
   vpc_security_group_ids = [aws_security_group.adam-global-sg.id]
@@ -259,6 +259,7 @@ resource "aws_eks_node_group" "adam-node-group" {
   node_group_name = "adam-node-group"
   node_role_arn   = aws_iam_role.adam-eks-node-role.arn
   instance_types  = ["t4g.medium"]
+  ami_type        = "AL2023_ARM_64_STANDARD"
   subnet_ids      = module.vpc.private_subnets
 
   scaling_config {

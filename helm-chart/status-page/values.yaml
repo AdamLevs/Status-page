@@ -67,10 +67,11 @@ autoscaling:
 
 # RDS and Redis Configuration
 database:
-  endpoint: "terraform-20241103150345546600000001.cx248m4we6k7.us-east-1.rds.amazonaws.com"
-  username: "statuspage"
+  endpoint: "adam-status-page.cx248m4we6k7.us-east-1.rds.amazonaws.com"
+  port: "5432"
+  dbName: "status-page"
+  username: "status-page"
   password: "Qz147369"
-  dbName: "statuspage"
 
 redis:
   host: "adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com"

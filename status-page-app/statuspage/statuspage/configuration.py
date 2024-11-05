@@ -4,10 +4,10 @@ ALLOWED_HOSTS = ['*']
 
 # Database Configuration
 DATABASE = {
-    'NAME': os.getenv('DB_NAME', 'status_page'),
-    'USER': os.getenv('DB_USER', 'status_page'),
+    'NAME': os.getenv('DB_NAME', 'status-page'),
+    'USER': os.getenv('DB_USER', 'status-page'),
     'PASSWORD': os.getenv('DB_PASSWORD', 'Qz147369'),
-    'HOST': os.getenv('DB_HOST', 'terraform-2024110320304173750000000b.cx248m4we6k7.us-east-1.rds.amazonaws.com'),
+    'HOST': os.getenv('DB_HOST', 'adam-status-page.cx248m4we6k7.us-east-1.rds.amazonaws.com:5432'),
     'PORT': os.getenv('DB_PORT', '5432'),
     'CONN_MAX_AGE': 300,
 }
@@ -22,7 +22,7 @@ REDIS = {
         'SSL': False,
     },
     'caching': {
-        'HOST': os.getenv('REDIS_HOST', 'adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com'),
+        'HOST': os.getenv('REDIS_HOST', 'adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com:6379'),
         'PORT': int(os.getenv('REDIS_PORT', '6379')),
         'PASSWORD': '',
         'DATABASE': 1,
