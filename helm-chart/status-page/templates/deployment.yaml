@@ -21,15 +21,15 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: DB_HOST
-              value: "{{ .Values.database.endpoint }}"  # RDS endpoint
+              value: "{{ .Values.database.endpoint }}"
             - name: DB_PORT
-              value: "5432"
+              value: "{{.Values.database.port}}"
             - name: DB_NAME
-              value: "status-page"  # Database name
+              value: "{{.Values.database.dbName}}"
             - name: DB_USER
-              value: "status-page"  # Username
+              value: "{{.Values.database.username}}"
             - name: DB_PASSWORD
-              value: "{{ .Values.database.password }}"  # Directly reference the password
+              value: "{{ .Values.database.password }}"
             - name: REDIS_HOST
               value: "{{ .Values.redis.host }}"
             - name: REDIS_PORT
@@ -38,6 +38,8 @@ spec:
               value: "{{ .Values.djangoSecretKey }}"
           ports:
             - containerPort: 80
+              name: http
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /

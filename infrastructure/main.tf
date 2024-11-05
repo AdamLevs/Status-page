@@ -66,11 +66,11 @@ resource "aws_db_subnet_group" "adam-db-subnet-group" {
 resource "aws_db_instance" "adam-rds-instance" {
   allocated_storage      = 20
   engine                 = "postgres"
-  instance_class         = "db.t4g.medium" # ARM-compatible instance
+  instance_class         = "db.t4g.medium"
   identifier             = "adam-status-page"
   skip_final_snapshot    = true
-  db_name                = "status-page"
-  username               = "status-page"
+  db_name                = "statuspage"
+  username               = "statuspage"
   password               = "Qz147369"
   db_subnet_group_name   = aws_db_subnet_group.adam-db-subnet-group.name
   vpc_security_group_ids = [aws_security_group.adam-global-sg.id]

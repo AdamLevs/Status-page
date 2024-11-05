@@ -4,10 +4,10 @@ ALLOWED_HOSTS = ['*']
 
 # Database Configuration
 DATABASE = {
-    'NAME': os.getenv('DB_NAME', 'status-page'),
-    'USER': os.getenv('DB_USER', 'status-page'),
+    'NAME': os.getenv('DB_NAME', 'statuspage'),
+    'USER': os.getenv('DB_USER', 'statuspage'),
     'PASSWORD': os.getenv('DB_PASSWORD', 'Qz147369'),
-    'HOST': os.getenv('DB_HOST', 'adam-status-page.cx248m4we6k7.us-east-1.rds.amazonaws.com:5432'),
+    'HOST': os.getenv('DB_HOST', 'adam-status-page.cx248m4we6k7.us-east-1.rds.amazonaws.com'),
     'PORT': os.getenv('DB_PORT', '5432'),
     'CONN_MAX_AGE': 300,
 }
@@ -15,14 +15,14 @@ DATABASE = {
 # Redis Configuration
 REDIS = {
     'tasks': {
-        'HOST': os.getenv('REDIS_HOST', 'adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com:6379'),
+        'HOST': os.getenv('REDIS_HOST', 'adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com'),
         'PORT': int(os.getenv('REDIS_PORT', '6379')),
         'PASSWORD': '',
         'DATABASE': 0,
         'SSL': False,
     },
     'caching': {
-        'HOST': os.getenv('REDIS_HOST', 'adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com:6379'),
+        'HOST': os.getenv('REDIS_HOST', 'adam-redis-cluster.7fftml.0001.use1.cache.amazonaws.com'),
         'PORT': int(os.getenv('REDIS_PORT', '6379')),
         'PASSWORD': '',
         'DATABASE': 1,

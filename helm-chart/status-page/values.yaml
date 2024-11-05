@@ -69,8 +69,8 @@ autoscaling:
 database:
   endpoint: "adam-status-page.cx248m4we6k7.us-east-1.rds.amazonaws.com"
   port: "5432"
-  dbName: "status-page"
-  username: "status-page"
+  dbName: "statuspage"
+  username: "statuspage"
   password: "Qz147369"
 
 redis:
