@@ -1,6 +1,11 @@
 from sqlalchemy.orm import Session
 from . import models, schemas, auth
 from typing import Optional
+from .models import HealthCheck
+
+def get_health_checks(db: Session, service_id: int):
+    return db.query(HealthCheck).filter(HealthCheck.service_id == service_id).order_by(HealthCheck.checked_at.desc()).limit(10).all()
+
 
 # Users
 
