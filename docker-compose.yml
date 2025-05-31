@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: Admin
+      POSTGRES_PASSWORD: Password
+      POSTGRES_DB: statuspage
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U Admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql://Admin:Password@db/statuspage
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=super-secret-key
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: celery -A app.worker worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://Admin:Password@db/statuspage
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=super-secret-key
+
+  frontend:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

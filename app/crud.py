@@ -1,0 +1,34 @@
+from sqlalchemy.orm import Session
+from . import models, schemas, auth
+from typing import Optional
+
+# Users
+
+def create_user(db: Session, user: schemas.UserCreate):
+    hashed_password = auth.hash_password(user.password)
+    db_user = models.User(email=user.email, hashed_password=hashed_password)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.email == email).first()
+
+def get_user(db: Session, user_id: int) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+# Services
+
+def create_service(db: Session, service: schemas.ServiceCreate):
+    db_service = models.Service(**service.dict())
+    db.add(db_service)
+    db.commit()
+    db.refresh(db_service)
+    return db_service
+
+def get_services(db: Session):
+    return db.query(models.Service).all()
+
+def get_service(db: Session, service_id: int):
+    return db.query(models.Service).filter(models.Service.id == service_id).first()
