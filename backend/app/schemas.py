@@ -15,3 +15,15 @@ class ServiceOut(ServiceCreate):
 
     class Config:
         orm_mode = True
+
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+
+    class Config:
+        orm_mode = True

@@ -8,3 +8,13 @@ celery[redis]
 requests
 aiohttp
 dnspython
+passlib[bcrypt]
+python-jose[cryptography]
+httpx
+pytest
+pytest-asyncio
+pytest-cov
+email-validator
+argon2-cffi
+flower
+python-dotenv

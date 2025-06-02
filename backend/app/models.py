@@ -20,3 +20,10 @@ class HealthCheck(Base):
     response_time = Column(Float)
     error_message = Column(String, nullable=True)
     checked_at = Column(DateTime, default=datetime.utcnow)
+
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)

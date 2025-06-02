@@ -10,17 +10,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from datetime import datetime
 from .models import Service, HealthCheck
-from .config import settings
+import config
 
-# Celery
-celery = Celery('worker', broker=settings.REDIS_URL)
+celery = Celery('worker', broker=config.REDIS_URL)
 
-# Database
-engine = create_engine(settings.DATABASE_URL)
+engine = create_engine(config.DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
-
-# Entry point - periodic task
 @celery.task
 def check_services():
     db = SessionLocal()
@@ -40,8 +36,6 @@ def check_services():
         db.commit()
     db.close()
 
-
-# Dispatcher
 def perform_check(service):
     try:
         start = time.time()
@@ -49,29 +43,21 @@ def perform_check(service):
             response = requests.get(service.check_target, timeout=10)
             response_time = time.time() - start
             return ("UP" if response.status_code == 200 else "DOWN", response_time, None)
-
         elif service.check_type == "PING":
             return ping_check(service.check_target)
-
         elif service.check_type == "TCP":
             return tcp_check(service.check_target)
-
         elif service.check_type == "DNS":
             return dns_check(service.check_target)
-
         else:
             return ("UNKNOWN", 0, "Unsupported check type")
     except Exception as e:
         return ("DOWN", 0, str(e))
 
-
-# PING CHECK
 def ping_check(host):
     response = os.system(f"ping -c 1 {host} > /dev/null 2>&1")
     return ("UP" if response == 0 else "DOWN", 0, None if response == 0 else "Ping failed")
 
-
-# TCP CHECK
 def tcp_check(target):
     try:
         host, port = target.split(":")
@@ -81,8 +67,6 @@ def tcp_check(target):
     except Exception as e:
         return ("DOWN", 0, str(e))
 
-
-# DNS CHECK
 def dns_check(domain):
     try:
         answers = dns.resolver.resolve(domain, 'A')
