@@ -1,3 +1,4 @@
+# Makefile for managing the Dockerized application environment - added by [name of the author] and then modified by the commends of the user
 PYTHON := $(shell command -v python3 2> /dev/null || command -v python)
 
 # generate environment variables
