@@ -7,64 +7,89 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    command: ["postgres", "-p", "55432"]
+    expose:
+      - ${POSTGRES_PORT}
     ports:
-      - "${POSTGRES_PORT}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - ${POSTGRES_PORT}:55432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+    networks:
+      - isolated_net
 
   redis:
     image: redis:alpine
     restart: always
-    ports:
-      - "${REDIS_PORT}:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    env_file: .env
+    expose:
+      - ${REDIS_PORT}
+    volumes:
+      - redis_data:/data
+    networks:
+      - isolated_net
 
   backend:
     build:
       context: ./backend
     env_file: .env
+    environment:
+      PYTHONPATH: /app
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
+    expose:
+      - "8000"
     ports:
       - "8000:8000"
+    networks:
+      - isolated_net
 
   worker:
     build:
       context: ./backend
     env_file: .env
+    environment:
+      PYTHONPATH: /app
     command: celery -A app.worker worker --loglevel=info
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
+    networks:
+      - isolated_net
 
-  beat:
+  scheduler:
     build:
       context: ./backend
     env_file: .env
+    environment:
+      PYTHONPATH: /app
     command: celery -A app.worker beat --loglevel=info
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - backend
+      - redis
+    networks:
+      - isolated_net
 
   frontend:
     build:
       context: ./frontend
+    env_file: .env
     ports:
       - "3000:80"
     depends_on:
-      backend:
-        condition: service_started
+      - backend
+    networks:
+      - isolated_net
+
+networks:
+  isolated_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

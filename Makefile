@@ -6,16 +6,17 @@ generate:
 
 up:
 	@if [ ! -f .env ]; then make generate; fi
+	chmod +x initdb/init.sh
 	docker compose up --build
 
 down:
 	docker compose down -v
 
 reset:
-	docker compose down -v
+	docker compose down -v --remove-orphans
 	docker volume prune -f
-	docker system prune -f --volumes
-	docker builder prune -f
+	docker network prune -f
+	docker system prune -f --volumes --all
 
 destroy:
 	docker system prune -a --volumes

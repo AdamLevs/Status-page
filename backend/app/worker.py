@@ -1,21 +1,82 @@
-import os
 import time
 import requests
 import socket
 import dns.resolver
-import asyncio
-import aiohttp
+import subprocess
+import ipaddress
+from urllib.parse import urlparse
 from celery import Celery
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from datetime import datetime
-from .models import Service, HealthCheck
-import config
+from app.models import Service, HealthCheck
+import app.config as config
 
 celery = Celery('worker', broker=config.REDIS_URL)
-
 engine = create_engine(config.DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
+
+def is_ip(address):
+    try:
+        ipaddress.ip_address(address)
+        return True
+    except ValueError:
+        return False
+
+def is_url(address):
+    try:
+        parsed = urlparse(address)
+        return parsed.scheme in ('http', 'https')
+    except:
+        return False
+
+def perform_check(service):
+    start = time.time()
+
+    try:
+        if is_url(service.check_target):
+            try:
+                resp = requests.get(service.check_target, timeout=5)
+                response_time = time.time() - start
+                return "UP" if resp.ok else "DOWN", response_time, None
+            except Exception as e:
+                return "DOWN", None, str(e)
+
+        if service.check_type == "PING":
+            result = subprocess.run(
+                ['ping', '-c', '1', '-W', '3', service.check_target],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            success = result.returncode == 0
+            response_time = time.time() - start
+            return "UP" if success else "DOWN", response_time, None if success else result.stderr.decode()
+
+        elif service.check_type == "TCP":
+            try:
+                host, port = service.check_target.split(":")
+                port = int(port)
+                s = socket.create_connection((host, port), timeout=5)
+                response_time = time.time() - start
+                s.close()
+                return "UP", response_time, None
+            except Exception as e:
+                return "DOWN", None, str(e)
+
+        elif service.check_type == "DNS":
+            try:
+                dns.resolver.resolve(service.check_target)
+                response_time = time.time() - start
+                return "UP", response_time, None
+            except Exception as e:
+                return "DOWN", None, str(e)
+
+        else:
+            return "DOWN", None, "Unsupported check type"
+
+    except Exception as e:
+        return "DOWN", None, str(e)
+
 
 @celery.task
 def check_services():
@@ -36,40 +97,9 @@ def check_services():
         db.commit()
     db.close()
 
-def perform_check(service):
-    try:
-        start = time.time()
-        if service.check_type == "HTTP":
-            response = requests.get(service.check_target, timeout=10)
-            response_time = time.time() - start
-            return ("UP" if response.status_code == 200 else "DOWN", response_time, None)
-        elif service.check_type == "PING":
-            return ping_check(service.check_target)
-        elif service.check_type == "TCP":
-            return tcp_check(service.check_target)
-        elif service.check_type == "DNS":
-            return dns_check(service.check_target)
-        else:
-            return ("UNKNOWN", 0, "Unsupported check type")
-    except Exception as e:
-        return ("DOWN", 0, str(e))
-
-def ping_check(host):
-    response = os.system(f"ping -c 1 {host} > /dev/null 2>&1")
-    return ("UP" if response == 0 else "DOWN", 0, None if response == 0 else "Ping failed")
-
-def tcp_check(target):
-    try:
-        host, port = target.split(":")
-        port = int(port)
-        with socket.create_connection((host, port), timeout=5):
-            return ("UP", 0, None)
-    except Exception as e:
-        return ("DOWN", 0, str(e))
-
-def dns_check(domain):
-    try:
-        answers = dns.resolver.resolve(domain, 'A')
-        return ("UP", 0, None)
-    except Exception as e:
-        return ("DOWN", 0, str(e))
+celery.conf.beat_schedule = {
+    "check-every-minute": {
+        "task": "app.worker.check_services",
+        "schedule": 60.0,
+    }
+}

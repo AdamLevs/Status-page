@@ -1,69 +1,86 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_URL = 'http://localhost:8000';
 
 function App() {
   const [services, setServices] = useState([]);
-  const [form, setForm] = useState({ name: '', check_type: 'HTTP', check_target: '', frequency: 60 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchServices();
+    const interval = setInterval(fetchServices, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchServices = () => {
-    axios.get(`${API_URL}/services`)
-      .then(res => setServices(res.data))
-      .catch(console.error);
+  const fetchServices = async () => {
+    try {
+      const response = await fetch('/api/public');
+      if (!response.ok) {
+        throw new Error('Failed to fetch services');
+      }
+      const data = await response.json();
+      setServices(data);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    axios.post(`${API_URL}/services`, form)
-      .then(() => {
-        fetchServices();
-        setForm({ name: '', check_type: 'HTTP', check_target: '', frequency: 60 });
-      })
-      .catch(console.error);
-  };
+  const getStatusColor = (status) => status ? '#10B981' : '#EF4444';
+  const getStatusText = (status) => status ? 'Operational' : 'Down';
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Status Page</h1>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+      <header style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <h1>Service Status</h1>
+        <p>Current operational status of services</p>
+      </header>
 
-      <form onSubmit={handleSubmit}>
-        <input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-        <select value={form.check_type} onChange={e => setForm({ ...form, check_type: e.target.value })}>
-          <option value="HTTP">HTTP</option>
-          <option value="PING">PING</option>
-          <option value="TCP">TCP</option>
-          <option value="DNS">DNS</option>
-        </select>
-        <input placeholder="Target" value={form.check_target} onChange={e => setForm({ ...form, check_target: e.target.value })} />
-        <input placeholder="Frequency" type="number" value={form.frequency} onChange={e => setForm({ ...form, frequency: parseInt(e.target.value) })} />
-        <button type="submit">Add Service</button>
-      </form>
+      {error && (
+        <div style={{ backgroundColor: '#FEE2E2', color: '#DC2626', padding: '12px', borderRadius: '8px', marginBottom: '20px' }}>
+          Error: {error}
+        </div>
+      )}
 
-      <table border="1" cellPadding="10">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Target</th>
-            <th>Frequency</th>
-          </tr>
-        </thead>
-        <tbody>
-          {services.map(service => (
-            <tr key={service.id}>
-              <td>{service.name}</td>
-              <td>{service.check_type}</td>
-              <td>{service.check_target}</td>
-              <td>{service.frequency}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h2>Services</h2>
+          <button onClick={fetchServices} style={{ backgroundColor: '#3B82F6', color: 'white', padding: '8px 16px', borderRadius: '6px' }}>
+            Refresh
+          </button>
+        </div>
+
+        {services.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            No services configured yet
+          </div>
+        ) : (
+          <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px' }}>
+            {services.map((service, index) => (
+              <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 20px', borderBottom: index < services.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
+                <h3>{service.name}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: getStatusColor(service.status) }} />
+                  <span style={{ color: getStatusColor(service.status) }}>{getStatusText(service.status)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <footer style={{ textAlign: 'center', marginTop: '40px' }}>
+        Last updated: {new Date().toLocaleString()}
+      </footer>
     </div>
   );
 }
