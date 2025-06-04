@@ -9,9 +9,16 @@ docker-compose.*.yaml
 # Docker volumes (if mapped locally)
 pgdata/
 redis-data/
+postgres_data/
+redis_data/
+initdb_data/
+volumes/
 
 # Docker build cache
 __docker_build__/
+docker-build-cache/
+build/
+dist/
 
 # Database dumps
 *.sql
@@ -33,6 +40,8 @@ backend/.env
 # Virtual environments
 venv/
 .env/  # in case someone uses dir-style envs
+.mypy_cache/
+.pytest_cache/
 
 # pytest
 .cache/
@@ -53,9 +62,13 @@ package-lock.json  # optional (depends on if you commit lock files)
 pnpm-lock.yaml
 yarn.lock
 
+# Vite build (אם אתה עובד עם vite)
+frontend/dist/
+
 # === EDITORS ===
 .vscode/
 .idea/
+*.code-workspace
 
 # === OS-SPECIFIC ===
 .DS_Store
@@ -67,3 +80,5 @@ Icon?
 *~
 *.swp
 *.swo
+*.bak
+*.tmp
