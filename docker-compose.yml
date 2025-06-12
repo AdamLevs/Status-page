@@ -1,94 +1,70 @@
 services:
+
   db:
-    image: postgres:17-alpine
+    image: postgres:15-alpine
     restart: always
-    env_file: .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    command: ["postgres", "-p", "55432"]
-    expose:
-      - ${POSTGRES_PORT}
-    ports:
-      - ${POSTGRES_PORT}:55432
+      POSTGRES_USER: Admin
+      POSTGRES_PASSWORD: Password
+      POSTGRES_DB: statuspage
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./initdb:/docker-entrypoint-initdb.d
-    networks:
-      - isolated_net
+    ports:
+      - "55432:55432"
 
   redis:
     image: redis:alpine
     restart: always
-    env_file: .env
-    expose:
-      - ${REDIS_PORT}
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
-    networks:
-      - isolated_net
 
   backend:
     build:
       context: ./backend
-    env_file: .env
     environment:
-      PYTHONPATH: /app
+      DATABASE_URL: postgresql://Admin:Password@db:5432/statuspage
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: super-secret-key
     depends_on:
-      db:
-        condition: service_started
-      redis:
-        condition: service_started
-    expose:
-      - "8000"
+      - db
+      - redis
     ports:
       - "8000:8000"
-    networks:
-      - isolated_net
 
   worker:
     build:
       context: ./backend
-    env_file: .env
+    command: celery -A app.worker:celery worker --loglevel=info
     environment:
-      PYTHONPATH: /app
-    command: celery -A app.worker worker --loglevel=info
+      DATABASE_URL: postgresql://Admin:Password@db:5432/statuspage
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: super-secret-key
     depends_on:
-      db:
-        condition: service_started
-      redis:
-        condition: service_started
-    networks:
-      - isolated_net
+      - backend
+      - redis
 
   scheduler:
     build:
       context: ./backend
-    env_file: .env
+    command: celery -A app.worker:celery beat --loglevel=info
     environment:
-      PYTHONPATH: /app
-    command: celery -A app.worker beat --loglevel=info
+      DATABASE_URL: postgresql://Admin:Password@db:5432/statuspage
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: super-secret-key
     depends_on:
       - backend
       - redis
-    networks:
-      - isolated_net
 
   frontend:
     build:
       context: ./frontend
-    env_file: .env
     ports:
       - "3000:80"
     depends_on:
       - backend
-    networks:
-      - isolated_net
-
-networks:
-  isolated_net:
-    driver: bridge
 
 volumes:
   postgres_data:

@@ -2,20 +2,22 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-class ServiceCreate(BaseModel):
+class ServiceBase(BaseModel):
     name: str
     check_type: str
     check_target: str
     frequency: int
 
-class ServiceOut(ServiceCreate):
+class ServiceCreate(ServiceBase):
+    pass
+
+class ServiceOut(ServiceBase):
     id: int
     is_active: bool
     last_checked_at: Optional[datetime]
 
     class Config:
         orm_mode = True
-
 
 class UserCreate(BaseModel):
     email: str
@@ -24,6 +26,17 @@ class UserCreate(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: str
+
+    class Config:
+        orm_mode = True
+
+class HealthCheckOut(BaseModel):
+    id: int
+    service_id: int
+    status: str
+    response_time: Optional[float]
+    error_message: Optional[str]
+    checked_at: datetime
 
     class Config:
         orm_mode = True

@@ -4,6 +4,7 @@ function App() {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     fetchServices();
@@ -20,6 +21,7 @@ function App() {
       const data = await response.json();
       setServices(data);
       setError(null);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -27,8 +29,17 @@ function App() {
     }
   };
 
-  const getStatusColor = (status) => status ? '#10B981' : '#EF4444';
-  const getStatusText = (status) => status ? 'Operational' : 'Down';
+  const getStatusColor = (status) => {
+    if (status === 'UP') return '#10B981';
+    if (status === 'DOWN') return '#EF4444';
+    return '#FBBF24';
+  };
+
+  const getStatusText = (status) => {
+    if (status === 'UP') return 'Operational';
+    if (status === 'DOWN') return 'Down';
+    return 'Unknown';
+  };
 
   if (loading) {
     return (
@@ -66,11 +77,28 @@ function App() {
         ) : (
           <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px' }}>
             {services.map((service, index) => (
-              <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 20px', borderBottom: index < services.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
+              <div
+                key={index}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '16px 20px',
+                  borderBottom: index < services.length - 1 ? '1px solid #E5E7EB' : 'none'
+                }}
+              >
                 <h3>{service.name}</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: getStatusColor(service.status) }} />
-                  <span style={{ color: getStatusColor(service.status) }}>{getStatusText(service.status)}</span>
+                  <div
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      backgroundColor: getStatusColor(service.status)
+                    }}
+                  />
+                  <span style={{ color: getStatusColor(service.status) }}>
+                    {getStatusText(service.status)}
+                  </span>
                 </div>
               </div>
             ))}
@@ -79,7 +107,7 @@ function App() {
       </div>
 
       <footer style={{ textAlign: 'center', marginTop: '40px' }}>
-        Last updated: {new Date().toLocaleString()}
+        Last updated: {lastUpdated ? lastUpdated.toLocaleString() : 'N/A'}
       </footer>
     </div>
   );
