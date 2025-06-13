@@ -35,3 +35,14 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+
+class ServerStats(Base):
+    __tablename__ = "server_stats"
+    id = Column(Integer, primary_key=True, index=True)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=False, index=True)
+    cpu_usage = Column(Float, nullable=True)
+    memory_usage = Column(Float, nullable=True)
+    disk_usage = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    service = relationship("Service")

@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app import models, schemas, auth, config
 from typing import Optional
-from app.models import Service, HealthCheck
+from app.models import Service, HealthCheck, ServerStats
 
 # Health Checks
 def get_health_checks(db: Session, service_id: int):
@@ -35,6 +35,12 @@ def get_services(db: Session):
 
 def get_service(db: Session, service_id: int):
     return db.query(models.Service).filter(models.Service.id == service_id).first()
+
+def get_latest_stats(db: Session, service_id: int) -> Optional[ServerStats]:
+    return db.query(ServerStats)\
+             .filter(ServerStats.service_id == service_id)\
+             .order_by(ServerStats.created_at.desc())\
+             .first()
 
 def delete_service(db: Session, service_id: int) -> bool:
     service = db.query(models.Service).filter(models.Service.id == service_id).first()

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 function App() {
   const [services, setServices] = useState([]);
+  const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -22,6 +23,17 @@ function App() {
       setServices(data);
       setError(null);
       setLastUpdated(new Date());
+
+      // Load stats for SSH services
+      for (const service of data) {
+        if (service.status === 'UP') {
+          const res = await fetch(`/api/services/${service.id}/stats`);
+          if (res.ok) {
+            const statData = await res.json();
+            setStats(prev => ({ ...prev, [service.id]: statData }));
+          }
+        }
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -80,26 +92,35 @@ function App() {
               <div
                 key={index}
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
                   padding: '16px 20px',
                   borderBottom: index < services.length - 1 ? '1px solid #E5E7EB' : 'none'
                 }}
               >
-                <h3>{service.name}</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div
-                    style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      backgroundColor: getStatusColor(service.status)
-                    }}
-                  />
-                  <span style={{ color: getStatusColor(service.status) }}>
-                    {getStatusText(service.status)}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <h3>{service.name}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div
+                      style={{
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        backgroundColor: getStatusColor(service.status)
+                      }}
+                    />
+                    <span style={{ color: getStatusColor(service.status) }}>
+                      {getStatusText(service.status)}
+                    </span>
+                  </div>
                 </div>
+
+                {/* Extra Monitoring Info */}
+                {stats[service.id] && (
+                  <div style={{ marginTop: '10px', fontSize: '0.9em', color: '#374151' }}>
+                    <p>🧠 CPU Usage: {stats[service.id].cpu_usage ?? 'N/A'}%</p>
+                    <p>💾 RAM Usage: {stats[service.id].memory_usage ?? 'N/A'}%</p>
+                    <p>🗄️ Disk Usage: {stats[service.id].disk_usage ?? 'N/A'}%</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

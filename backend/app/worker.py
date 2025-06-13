@@ -7,7 +7,7 @@ from celery import Celery
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from datetime import datetime
-from app.models import Service, HealthCheck
+from app.models import Service, HealthCheck, ServerStats
 from app.SSH import get_server_stats
 import app.config as config
 import ping3
@@ -88,11 +88,20 @@ def check_dns(target, start):
     except Exception as e:
         return "DOWN", None, f"DNS error: {str(e)}"
 
-def check_ssh_stats(target, start):
+def check_ssh_stats(target, start, service_id, db):
     try:
         stats = get_server_stats(target)
         response_time = time.time() - start
-        return "UP", response_time, None
+
+        if "error" not in stats:
+            db.add(ServerStats(
+                service_id=service_id,
+                cpu_usage=stats.get("cpu_usage"),
+                memory_usage=stats.get("memory_usage"),
+                disk_usage=stats.get("disk_usage"),
+            ))
+
+        return "UP", response_time, None if "error" not in stats else stats["error"]
     except Exception as e:
         return "DOWN", None, f"SSH error: {str(e)}"
 
@@ -103,7 +112,10 @@ def check_services():
         services = db.query(Service).filter(Service.is_active == True).all()
         now = datetime.utcnow()
         for service in services:
-            status, response_time, error = perform_check(service)
+            if service.check_type.upper() == "SSH":
+                status, response_time, error = check_ssh_stats(service.check_target, time.time(), service.id, db)
+            else:
+                status, response_time, error = perform_check(service)
 
             print(f"[{service.name}] Status: {status} | Time: {response_time} | Error: {error}")
 
