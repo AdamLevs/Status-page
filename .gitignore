@@ -82,3 +82,14 @@ Icon?
 *.swo
 *.bak
 *.tmp
+
+# === SSL CERTIFICATES ===
+*.pem
+*.crt
+*.key
+*.csr
+*.p12
+*.cer
+*.der
+*.jks
+frontend/ssl/*
