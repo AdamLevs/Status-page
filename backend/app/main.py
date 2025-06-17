@@ -4,15 +4,17 @@ from datetime import datetime, timedelta
 from app import models, database, crud, schemas
 import sqlalchemy
 from sqlalchemy import create_engine, text
+import time
+
 def wait_for_db():
-    engine = create_engine("postgresql://Admin:Password@status_db:5432/statuspage")
-    for i in range(10):
+    engine = create_engine("postgresql://Admin:Password@db:5432/statuspage")
+    for i in range(30):
         try:
             with engine.connect() as conn:
                 print("✅ Database is ready.")
                 return
         except sqlalchemy.exc.OperationalError:
-            print(f"⏳ Database not ready yet ({i+1}/10)...")
+            print(f"⏳ Database not ready yet ({i+1}/30)...")
             time.sleep(2)
     raise Exception("❌ Database not available")
 
