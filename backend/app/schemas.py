@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -16,8 +16,7 @@ class ServiceOut(ServiceBase):
     is_active: bool
     last_checked_at: Optional[datetime]
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserCreate(BaseModel):
     email: str
@@ -27,8 +26,7 @@ class UserOut(BaseModel):
     id: int
     email: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class HealthCheckOut(BaseModel):
     id: int
@@ -38,5 +36,4 @@ class HealthCheckOut(BaseModel):
     error_message: Optional[str]
     checked_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

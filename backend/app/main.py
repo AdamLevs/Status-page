@@ -2,6 +2,21 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timedelta
 from app import models, database, crud, schemas
+from sqlalchemy import create_engine, text
+
+def wait_for_db():
+    engine = create_engine("postgresql://Admin:Password@status_db:5432/statuspage")
+    for i in range(10):
+        try:
+            with engine.connect() as conn:
+                print("✅ Database is ready.")
+                return
+        except sqlalchemy.exc.OperationalError:
+            print(f"⏳ Database not ready yet ({i+1}/10)...")
+            time.sleep(2)
+    raise Exception("❌ Database not available")
+
+wait_for_db()
 
 models.Base.metadata.create_all(bind=database.engine)
 
