@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timedelta
 from app import models, database, crud, schemas
-from sqlalchemy import create_engine, text
+import sqlalchemy
 
 def wait_for_db():
     engine = create_engine("postgresql://Admin:Password@status_db:5432/statuspage")
