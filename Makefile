@@ -1,30 +1,38 @@
-# Makefile for managing the Dockerized application environment - added by [name of the author] and then modified by the commends of the user
 PYTHON := $(shell command -v python3 2> /dev/null || command -v python)
 
-# generate environment variables
+# Generate environment and SSL files if they don't exist
 generate:
-	$(PYTHON) backend/app/generate_env.py
-	sync
+	@if [ ! -f .env ]; then \
+		echo "Generating .env file..."; \
+		$(PYTHON) backend/app/generate_env.py; \
+		sync; \
+	else \
+		echo ".env file already exists. Skipping generation."; \
+	fi
+	@mkdir -p frontend/ssl
+	@if [ ! -f frontend/ssl/fullchain.pem ] || [ ! -f frontend/ssl/privkey.pem ]; then \
+		echo "Generating self-signed SSL certificates..."; \
+		openssl req -x509 -newkey rsa:4096 -nodes \
+			-keyout frontend/ssl/privkey.pem \
+			-out frontend/ssl/fullchain.pem \
+			-days 365 \
+			-subj "/C=IL/ST=TLV/L=TLV/O=Dev/OU=Dev/CN=localhost"; \
+	else \
+		echo "SSL certificates already exist. Skipping generation."; \
+	fi
 
-# run the application
+# Run the application
 up:
-	@if [ ! -f .env ]; then make generate; fi
+	@make generate
 	chmod +x initdb/init.sh
 	docker compose up --build
 
-# shut down the application
+# Shut down the application
 down:
 	docker compose down -v
 	@rm -f backend/.env .env
 
-# make a full reset of the application
-reset:
-	docker compose down -v --remove-orphans
-	docker volume prune -f
-	docker network prune -f
-	docker system prune -f --volumes --all
-
-# MAKE A FULL RESET TO DOCKER VOLUMES! USE WITH CAUTION!
+# Destroy everything ===> WARNING: This will remove all Docker containers, images, networks, and volumes
 destroy:
 	docker system prune -a --volumes
-	@rm -f backend/.env .env
+	@rm -f backend/.env .env frontend/ssl/fullchain.pem frontend/ssl/privkey.pem

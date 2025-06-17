@@ -54,6 +54,11 @@ A robust, self-hosted full containerized status page monitoring system that trac
    git clone https://github.com/AdamLevs/status-page.git
    cd status-page
    ```
+   
+ generate ssl environment variables
+   ```bash
+   make generate
+   ```
 
 2. **Launch the entire stack**
    ```bash
