@@ -9,7 +9,7 @@ function App() {
 
   useEffect(() => {
     fetchServices();
-    const interval = setInterval(fetchServices, 30000);
+    const interval = setInterval(fetchServices, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -24,7 +24,6 @@ function App() {
       setError(null);
       setLastUpdated(new Date());
 
-      // Load stats for SSH services
       for (const service of data) {
         if (service.status === 'UP') {
           const res = await fetch(`/api/services/${service.id}/stats`);
@@ -75,12 +74,7 @@ function App() {
       )}
 
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h2>Services</h2>
-          <button onClick={fetchServices} style={{ backgroundColor: '#3B82F6', color: 'white', padding: '8px 16px', borderRadius: '6px' }}>
-            Refresh
-          </button>
-        </div>
+        <h2 style={{ marginBottom: '16px' }}>Services</h2>
 
         {services.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px' }}>

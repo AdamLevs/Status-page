@@ -137,8 +137,8 @@ def check_services():
         db.close()
 
 celery.conf.beat_schedule = {
-    "check-every-60-seconds": {
+    "check-every-5-seconds": {
         "task": "app.worker.check_services",
-        "schedule": 20.0,
+        "schedule": 5,
     }
 }
