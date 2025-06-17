@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timedelta
 from app import models, database, crud, schemas
 import sqlalchemy
-
+from sqlalchemy import create_engine, text
 def wait_for_db():
     engine = create_engine("postgresql://Admin:Password@status_db:5432/statuspage")
     for i in range(10):
