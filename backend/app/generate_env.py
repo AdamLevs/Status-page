@@ -4,7 +4,7 @@ import secrets
 POSTGRES_USER = "Admin"
 POSTGRES_PASSWORD = "Password"
 POSTGRES_DB = "statuspage"
-POSTGRES_PORT = "55432"
+POSTGRES_PORT = "5432"
 POSTGRES_HOST = "db"
 REDIS_HOST = "redis"
 REDIS_PORT = "6379"

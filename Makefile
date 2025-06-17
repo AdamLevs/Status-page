@@ -1,6 +1,6 @@
 PYTHON := $(shell command -v python3 2> /dev/null || command -v python)
 
-# Generate environment and SSL files if they don't exist
+# Generate environment
 generate:
 	@if [ ! -f .env ]; then \
 		echo "Generating .env file..."; \
@@ -8,17 +8,6 @@ generate:
 		sync; \
 	else \
 		echo ".env file already exists. Skipping generation."; \
-	fi
-	@mkdir -p frontend/ssl
-	@if [ ! -f frontend/ssl/fullchain.pem ] || [ ! -f frontend/ssl/privkey.pem ]; then \
-		echo "Generating self-signed SSL certificates..."; \
-		openssl req -x509 -newkey rsa:4096 -nodes \
-			-keyout frontend/ssl/privkey.pem \
-			-out frontend/ssl/fullchain.pem \
-			-days 365 \
-			-subj "/C=IL/ST=TLV/L=TLV/O=Dev/OU=Dev/CN=localhost"; \
-	else \
-		echo "SSL certificates already exist. Skipping generation."; \
 	fi
 
 # Run the application
