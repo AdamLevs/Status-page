@@ -1,7 +1,26 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Session
+from app.models import HealthCheck
 from app.database import Base
 from datetime import datetime
+from sqlalchemy import asc
+
+
+def cleanup_old_healthchecks(db: Session, service_id: int, keep_last: int = 100):
+    total = db.query(HealthCheck).filter(HealthCheck.service_id == service_id).count()
+    old_ids = (
+        db.query(HealthCheck.id)
+        .filter(HealthCheck.service_id == service_id)
+        .order_by(HealthCheck.checked_at.asc())
+        .offset(keep_last)
+        .all()
+    )
+    if old_ids:
+        ids = [row.id for row in old_ids]
+        db.query(HealthCheck).filter(HealthCheck.id.in_(ids)).delete(synchronize_session=False)
+        db.commit()
+
+
 
 class Service(Base):
     __tablename__ = "services"
