@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function App() {
   const [services, setServices] = useState([]);
@@ -6,33 +6,38 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const prevServicesRef = useRef([]);
 
   useEffect(() => {
-    fetchServices();
-    const interval = setInterval(fetchServices, 5000);
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const fetchServices = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch('/api/public');
-      if (!response.ok) {
-        throw new Error('Failed to fetch services');
-      }
-      const data = await response.json();
-      setServices(data);
-      setError(null);
-      setLastUpdated(new Date());
+      const resServices = await fetch('/api/public');
+      if (!resServices.ok) throw new Error('Failed to fetch services');
+      const newServices = await resServices.json();
 
-      for (const service of data) {
-        if (service.status === 'UP') {
-          const res = await fetch(`/api/services/${service.id}/stats`);
-          if (res.ok) {
-            const statData = await res.json();
-            setStats(prev => ({ ...prev, [service.id]: statData }));
-          }
+      const prevServices = prevServicesRef.current;
+      const changed = JSON.stringify(prevServices) !== JSON.stringify(newServices);
+      if (changed) {
+        setServices(newServices);
+        prevServicesRef.current = newServices;
+
+        const resStats = await fetch('/api/services/stats');
+        if (resStats.ok) {
+          const statsArray = await resStats.json();
+          const statsMap = {};
+          statsArray.forEach(stat => {
+            statsMap[stat.id] = stat;
+          });
+          setStats(statsMap);
         }
       }
+      setError(null);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -84,7 +89,7 @@ function App() {
           <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px' }}>
             {services.map((service, index) => (
               <div
-                key={index}
+                key={service.id}
                 style={{
                   padding: '16px 20px',
                   borderBottom: index < services.length - 1 ? '1px solid #E5E7EB' : 'none'

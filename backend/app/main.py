@@ -3,14 +3,15 @@ from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timedelta
 from app import models, database, crud, schemas
 import sqlalchemy
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 import time
 
+# Database wait check
 def wait_for_db():
     engine = create_engine("postgresql://Admin:Password@db:5432/statuspage")
     for i in range(30):
         try:
-            with engine.connect() as conn:
+            with engine.connect():
                 print("✅ Database is ready.")
                 return
         except sqlalchemy.exc.OperationalError:
@@ -19,14 +20,10 @@ def wait_for_db():
     raise Exception("❌ Database not available")
 
 wait_for_db()
-
 models.Base.metadata.create_all(bind=database.engine)
 
+# App initialization
 app = FastAPI()
-
-@app.get("/")
-def root_message():
-    return {"message": "API is running!"}
 
 def get_db():
     db = database.SessionLocal()
@@ -35,11 +32,17 @@ def get_db():
     finally:
         db.close()
 
+@app.get("/")
+def root_message():
+    return {"message": "API is running!"}
+
 @app.post("/services", response_model=schemas.ServiceOut)
 def create_monitoring_service(service: schemas.ServiceCreate, db: Session = Depends(get_db)):
     valid_check_types = ("HTTP", "PING", "TCP", "DNS", "SSH")
     if service.check_type not in valid_check_types:
         raise HTTPException(status_code=400, detail=f"Invalid check type. Valid options: {valid_check_types}")
+    if not service.name or service.name.strip() == "":
+        raise HTTPException(status_code=400, detail="Service name cannot be empty")
     return crud.create_service(db, service)
 
 @app.get("/services", response_model=list[schemas.ServiceOut])
@@ -57,6 +60,22 @@ def get_latest_server_stats(service_id: int, db: Session = Depends(get_db)):
         "disk_usage": stats.disk_usage,
         "created_at": stats.created_at
     }
+
+@app.get("/services/stats")
+def get_all_stats(db: Session = Depends(get_db)):
+    services = crud.get_services(db)
+    result = []
+    for service in services:
+        stats = crud.get_latest_stats(db, service.id)
+        if stats:
+            result.append({
+                "id": service.id,
+                "cpu_usage": stats.cpu_usage,
+                "memory_usage": stats.memory_usage,
+                "disk_usage": stats.disk_usage,
+                "created_at": stats.created_at
+            })
+    return result
 
 @app.get("/services/{service_id}/health", response_model=list[schemas.HealthCheckOut])
 def get_service_health_checks(service_id: int, db: Session = Depends(get_db)):
@@ -85,22 +104,11 @@ def get_public_status_view(db: Session = Depends(get_db)):
             status = "Unknown" if age > staleness_limit else last_check.status
         else:
             status = "Unknown"
+
         result.append({
+            "id": service.id,
             "name": service.name,
-            "status": status,
-            "last_checked_at": last_check.checked_at.isoformat() if last_check else None,
-            "response_time": last_check.response_time if last_check else None,
-            "error_message": last_check.error_message if last_check else None
+            "url": service.url,
+            "status": status
         })
     return result
-
-@app.delete("/services/{service_id}")
-def delete_monitoring_service(service_id: int, db: Session = Depends(get_db)):
-    try:
-        success = crud.delete_service(db, service_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Service not found")
-        return {"message": "Service deleted successfully"}
-    except Exception as e:
-        print(f"[Delete Error] {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
