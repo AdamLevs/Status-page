@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-
+import PreLoader from './PreLoader';
 function App() {
   const [services, setServices] = useState([]);
   const [stats, setStats] = useState({});
@@ -58,12 +58,12 @@ function App() {
   };
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div>Loading...</div>
-      </div>
-    );
-  }
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <PreLoader width={80} height={80} />
+    </div>
+  );
+}
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
